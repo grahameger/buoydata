@@ -54,8 +54,8 @@ describe('realtime end-to-end', () => {
     expect(parsed.measurements[0].FOO).toBe('bar');
   });
 
-  it('parses live wind values for buoy 46254', async () => {
-    const buoyId = '46254';
+  it('parses live wind values for buoy 46086', async () => {
+    const buoyId = '46086';
     const rawText = await fetchRealtimeData({ buoyId });
     const parsed = parseRealtimeData(buoyId, rawText);
 
