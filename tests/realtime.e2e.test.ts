@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { buildRealtimeUrl, fetchRealtimeData, parseRealtimeData } from '../src';
+import {
+  buildRealtimeUrl,
+  fetchRealtimeData,
+  objectifyTable,
+  parseRealtimeData,
+  parseRealtimeTable,
+} from '../src';
 
 const SAMPLE_TEXT = `
 #YY MM DD hh mm WDIR WSPD GST WVHT DPD APD MWD PRES ATMP WTMP DEWP VIS TIDE
@@ -46,5 +52,31 @@ describe('realtime end-to-end', () => {
 
     expect(parsed.measurements).toHaveLength(1);
     expect(parsed.measurements[0].FOO).toBe('bar');
+  });
+
+  it('parses live wind values for buoy 46254', async () => {
+    const buoyId = '46254';
+    const rawText = await fetchRealtimeData({ buoyId });
+    const parsed = parseRealtimeData(buoyId, rawText);
+
+    const table = parseRealtimeTable(rawText, { missingValue: Number.NaN });
+    const records = objectifyTable(table);
+    const hasWindValues = records.some(record => {
+      const averageSpeed = Number(record.WSPD);
+      const direction = Number(record.WDIR);
+      return !Number.isNaN(averageSpeed) && !Number.isNaN(direction);
+    });
+
+    if (hasWindValues) {
+      const hasWind = parsed.measurements.some(measurement => {
+        const { averageSpeed, direction } = measurement.wind;
+        return !Number.isNaN(averageSpeed) && !Number.isNaN(direction);
+      });
+      expect(hasWind).toBe(true);
+    } else {
+      expect(parsed.measurements.length).toBeGreaterThan(0);
+      expect(typeof parsed.measurements[0].wind.averageSpeed).toBe('number');
+      expect(typeof parsed.measurements[0].wind.direction).toBe('number');
+    }
   });
 });
