@@ -4,6 +4,8 @@ https://www.npmjs.com/package/buoydata
 
 Modern TypeScript SDK for NOAA NDBC realtime buoy data. The library provides a fetch layer, parsing helpers, and typed models for standard meteorological measurements while still supporting arbitrary realtime2 data types.
 
+Reminder: No support or warranty is provided or expected. Use at your own risk.
+
 ## Installation
 
 ```bash
