@@ -89,7 +89,7 @@ export function parseRealtimeTable(
     return { headers: [], units: [], rows: [], rawRows: [] };
   }
 
-  const headerLine = lines[0];
+  const headerLine = lines[0] ?? '';
   const headerOptions: ParseRowOptions = {
     coerceNumbers: false,
     missingValue: null,
@@ -100,10 +100,14 @@ export function parseRealtimeTable(
   let units: string[] = [];
   let dataStartIndex = 1;
 
-  if (lines.length > 1 && lines[1].startsWith(commentPrefix)) {
-    units = parseRow(lines[1], headerOptions).map(token =>
-      token.startsWith(commentPrefix) ? token.slice(commentPrefix.length) : token,
-    );
+  const unitLine = lines[1];
+  if (unitLine && unitLine.startsWith(commentPrefix)) {
+    units = parseRow(unitLine, headerOptions).map(token => {
+      const text = String(token);
+      return text.startsWith(commentPrefix)
+        ? text.slice(commentPrefix.length)
+        : text;
+    });
     dataStartIndex = 2;
   }
 
