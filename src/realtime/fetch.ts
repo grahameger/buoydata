@@ -1,3 +1,4 @@
+import { LruCache } from '../utils/lru';
 import { buildURL } from '../utils/url';
 
 export interface FetchRealtimeOptions {
@@ -9,6 +10,12 @@ export interface FetchRealtimeOptions {
 }
 
 const DEFAULT_BASE_URL = 'https://www.ndbc.noaa.gov/data/realtime2/';
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_MAX_SIZE = 256;
+const REALTIME_CACHE = new LruCache<string, string>(
+  CACHE_MAX_SIZE,
+  CACHE_TTL_MS,
+);
 
 export function buildRealtimeUrl(
   buoyId: string,
@@ -34,6 +41,12 @@ export async function fetchRealtimeData(
     throw new Error('No fetch implementation available.');
   }
 
+  const cacheKey = `${baseUrl}|${buoyId}|${type}`;
+  const cached = REALTIME_CACHE.get(cacheKey);
+  if (cached !== undefined) {
+    return cached;
+  }
+
   const url = buildRealtimeUrl(buoyId, type, baseUrl);
   const response = await fetchImpl(url, requestInit);
 
@@ -41,5 +54,7 @@ export async function fetchRealtimeData(
     throw new Error(`Failed to fetch ${url}: ${response.status}`);
   }
 
-  return response.text();
+  const body = await response.text();
+  REALTIME_CACHE.set(cacheKey, body);
+  return body;
 }
