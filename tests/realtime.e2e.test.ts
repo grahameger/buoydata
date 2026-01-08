@@ -79,4 +79,17 @@ describe('realtime end-to-end', () => {
       expect(typeof parsed.measurements[0].wind.direction).toBe('number');
     }
   });
+
+  it('fetches realtime data for an alphanumeric station id', async () => {
+    const buoyId = 'chii2';
+    const rawText = await fetchRealtimeData({ buoyId });
+
+    expect(rawText.length).toBeGreaterThan(0);
+
+    const table = parseRealtimeTable(rawText, { missingValue: Number.NaN });
+    expect(table.headers.length).toBeGreaterThan(0);
+
+    const parsed = parseRealtimeData(buoyId, rawText);
+    expect(parsed.id).toBe(buoyId);
+  });
 });

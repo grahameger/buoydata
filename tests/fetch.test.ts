@@ -7,6 +7,11 @@ describe('fetchRealtimeData', () => {
     expect(url).toBe('https://example.com/46026.txt');
   });
 
+  it('normalizes alphanumeric station ids for the URL', () => {
+    const url = buildRealtimeUrl('chii2', 'txt', 'https://example.com/');
+    expect(url).toBe('https://example.com/CHII2.txt');
+  });
+
   it('returns response text', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

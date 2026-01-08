@@ -22,7 +22,8 @@ export function buildRealtimeUrl(
   type = 'txt',
   baseUrl = DEFAULT_BASE_URL,
 ): string {
-  const filename = `${buoyId}.${type}`;
+  const normalizedBuoyId = buoyId.toUpperCase();
+  const filename = `${normalizedBuoyId}.${type}`;
   return buildURL(baseUrl, filename);
 }
 
@@ -36,18 +37,19 @@ export async function fetchRealtimeData(
     requestInit,
     baseUrl = DEFAULT_BASE_URL,
   } = options;
+  const normalizedBuoyId = buoyId.toUpperCase();
 
   if (!fetchImpl) {
     throw new Error('No fetch implementation available.');
   }
 
-  const cacheKey = `${baseUrl}|${buoyId}|${type}`;
+  const cacheKey = `${baseUrl}|${normalizedBuoyId}|${type}`;
   const cached = REALTIME_CACHE.get(cacheKey);
   if (cached !== undefined) {
     return cached;
   }
 
-  const url = buildRealtimeUrl(buoyId, type, baseUrl);
+  const url = buildRealtimeUrl(normalizedBuoyId, type, baseUrl);
   const response = await fetchImpl(url, requestInit);
 
   if (!response.ok) {
