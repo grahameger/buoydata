@@ -39,8 +39,8 @@ describe('fetchRealtimeData', () => {
       fetchRealtimeData({
         buoyId: '46026',
         fetch: fetchMock,
-        baseUrl: 'https://example.com/',
+        baseUrl: 'https://example.com/error/',
       }),
-    ).rejects.toThrow('Failed to fetch https://example.com/46026.txt: 500');
+    ).rejects.toThrow('Failed to fetch https://example.com/error/46026.txt: 500');
   });
 });
