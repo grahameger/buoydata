@@ -11,7 +11,7 @@ export interface FetchRealtimeOptions {
 
 const DEFAULT_BASE_URL = 'https://www.ndbc.noaa.gov/data/realtime2/';
 const CACHE_TTL_MS = 5 * 60 * 1000;
-const CACHE_MAX_SIZE = 256;
+const CACHE_MAX_SIZE = 1024;
 const REALTIME_CACHE = new LruCache<string, string>(
   CACHE_MAX_SIZE,
   CACHE_TTL_MS,

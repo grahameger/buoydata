@@ -1,6 +1,6 @@
 {
   "name": "buoydata",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "Modern TypeScript SDK for NDBC realtime buoy data.",
   "type": "module",
   "main": "./dist/index.cjs",

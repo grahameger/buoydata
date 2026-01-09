@@ -8,7 +8,7 @@ export interface FetchBuoyListOptions {
 
 const DEFAULT_BUOY_LIST_URL = 'https://www.ndbc.noaa.gov/activestations.txt';
 const BUOY_LIST_CACHE_TTL_MS = 4 * 60 * 60 * 1000;
-const BUOY_LIST_CACHE_MAX_SIZE = 4;
+const BUOY_LIST_CACHE_MAX_SIZE = 16;
 const BUOY_LIST_CACHE = new LruCache<string, string[]>(
   BUOY_LIST_CACHE_MAX_SIZE,
   BUOY_LIST_CACHE_TTL_MS,
