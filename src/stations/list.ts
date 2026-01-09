@@ -54,7 +54,11 @@ function parseActiveStationsXml(rawText: string): { ids: string[]; set: Set<stri
   let match: RegExpExecArray | null;
 
   while ((match = regex.exec(rawText)) !== null) {
-    const id = match[1].toUpperCase();
+    const rawId = match[1];
+    if (!rawId) {
+      continue;
+    }
+    const id = rawId.toUpperCase();
     if (set.has(id)) {
       continue;
     }
