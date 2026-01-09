@@ -74,6 +74,18 @@ Builds the realtime2 URL for a buoy and file type.
 buildRealtimeUrl(buoyId: string, type?: string, baseUrl?: string): string
 ```
 
+### fetchBuoyList and fetchStationIndex
+
+Retrieve station IDs using the NDBC active station XML feed (no longer 404-prone). You can optionally include inactive stations from the station catalog, and `fetchStationIndex` gives you an `isActive` helper without needing to reparse data.
+
+```ts
+const active = await fetchBuoyList(); // active IDs only
+const all = await fetchBuoyList({ includeInactive: true }); // full catalog
+
+const index = await fetchStationIndex();
+index.isActive('46026'); // true/false
+```
+
 ### parseRealtimeData
 
 Parses a realtime2 text file into typed `Measurement` objects. Standard fields are mapped into structured measurement fields. Unknown columns are ignored unless `includeUnknownFields` is enabled.
