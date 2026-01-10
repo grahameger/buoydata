@@ -369,7 +369,11 @@ export function parseRealtimeData(
     }
     const values = frame.getColumn(field).toArray() as ParsedValue[];
     values.forEach((value, index) => {
-      mapper(measurements[index], value);
+      const measurement = measurements[index];
+      if (!measurement) {
+        return;
+      }
+      mapper(measurement, value);
     });
   });
 
