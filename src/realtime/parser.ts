@@ -1,5 +1,12 @@
+import pl from 'nodejs-polars';
+import type { DataFrame, ReadCsvOptions } from 'nodejs-polars';
 import { BuoyData, Measurement } from '../models/measurement';
-import { ParsedValue, RealtimeRecord, RealtimeTable } from '../models/table';
+import {
+  ParsedValue,
+  RealtimeRecord,
+  RealtimeTable,
+  RealtimeTableFrame,
+} from '../models/table';
 
 export interface ParseRowOptions {
   coerceNumbers?: boolean;
@@ -17,6 +24,21 @@ export interface ParseRealtimeDataOptions extends ParseRealtimeTableOptions {
 
 const DEFAULT_MISSING_TOKENS = ['MM'];
 
+interface ParsedTableData {
+  headers: string[];
+  units: string[];
+  rows: ParsedValue[][];
+  rawRows: string[];
+}
+
+function resolveRowOptions(options: ParseRowOptions): Required<ParseRowOptions> {
+  return {
+    coerceNumbers: options.coerceNumbers ?? true,
+    missingValue: options.missingValue ?? null,
+    missingTokens: options.missingTokens ?? DEFAULT_MISSING_TOKENS,
+  };
+}
+
 function isMissingToken(value: string, missingTokens: string[]): boolean {
   if (missingTokens.includes(value)) {
     return true;
@@ -28,6 +50,10 @@ function isMissingToken(value: string, missingTokens: string[]): boolean {
   }
 
   return false;
+}
+
+function normalizeRowWhitespace(line: string): string {
+  return line.trim().replace(/\s+/g, ' ');
 }
 
 function coerceValue(
@@ -48,15 +74,22 @@ function coerceValue(
   return raw;
 }
 
+function coerceFrameValue(
+  value: unknown,
+  options: Required<ParseRowOptions>,
+): ParsedValue {
+  if (value === null || value === undefined) {
+    return options.missingValue;
+  }
+
+  return coerceValue(String(value), options);
+}
+
 export function parseRow(
   rawRow: string,
   options: ParseRowOptions = {},
 ): ParsedValue[] {
-  const resolved: Required<ParseRowOptions> = {
-    coerceNumbers: options.coerceNumbers ?? true,
-    missingValue: options.missingValue ?? null,
-    missingTokens: options.missingTokens ?? DEFAULT_MISSING_TOKENS,
-  };
+  const resolved = resolveRowOptions(options);
 
   return rawRow
     .trim()
@@ -76,10 +109,60 @@ function normalizeLines(rawText: string): string[] {
     .filter(line => line.length > 0);
 }
 
-export function parseRealtimeTable(
+function buildRealtimeFrame(
+  headers: string[],
+  dataRows: string[],
+  missingTokens: string[],
+): DataFrame {
+  if (headers.length === 0) {
+    return pl.DataFrame({});
+  }
+
+  if (dataRows.length === 0) {
+    const emptyColumns = Object.fromEntries(
+      headers.map(header => [header, [] as ParsedValue[]]),
+    );
+    return pl.DataFrame(emptyColumns);
+  }
+
+  const normalizedHeader = headers.join(' ');
+  const normalizedRows = dataRows.map(row => normalizeRowWhitespace(row));
+  const csvBody = [normalizedHeader, ...normalizedRows].join('\n');
+
+  const readOptions: Partial<ReadCsvOptions> = {
+    sep: ' ',
+    hasHeader: true,
+    inferSchemaLength: 0,
+    ignoreErrors: true,
+    truncateRaggedLines: true,
+  };
+
+  if (missingTokens.length > 0) {
+    readOptions.nullValues = missingTokens;
+  }
+
+  return pl.readCSV(csvBody, readOptions);
+}
+
+function createFrameFromRows(headers: string[], rows: ParsedValue[][]): DataFrame {
+  if (headers.length === 0) {
+    return pl.DataFrame({});
+  }
+
+  if (rows.length === 0) {
+    const emptyColumns = Object.fromEntries(
+      headers.map(header => [header, [] as ParsedValue[]]),
+    );
+    return pl.DataFrame(emptyColumns);
+  }
+
+  return pl.DataFrame(rows, { columns: headers, orient: 'row' });
+}
+
+function parseRealtimeTableData(
   rawText: string,
-  options: ParseRealtimeTableOptions = {},
-): RealtimeTable {
+  options: ParseRealtimeTableOptions,
+): ParsedTableData {
   const commentPrefix = options.commentPrefix ?? '#';
   const lines = normalizeLines(rawText).filter(
     line => !isCommentLine(line, commentPrefix),
@@ -111,21 +194,55 @@ export function parseRealtimeTable(
     dataStartIndex = 2;
   }
 
-  const rowOptions: ParseRowOptions = {
+  const rowOptions = resolveRowOptions({
     coerceNumbers: options.coerceNumbers,
     missingValue: options.missingValue,
     missingTokens: options.missingTokens,
-  };
+  });
 
-  const dataRows = lines.slice(dataStartIndex);
-  const rows = dataRows.map(row => parseRow(row, rowOptions));
+  const rawRows = lines.slice(dataStartIndex);
+  const frame = buildRealtimeFrame(headers, rawRows, rowOptions.missingTokens);
+  const rows = frame
+    .rows()
+    .map(row => row.map(value => coerceFrameValue(value, rowOptions)));
 
   return {
     headers,
     units,
     rows,
-    rawRows: dataRows,
+    rawRows,
   };
+}
+
+export function parseRealtimeTable(
+  rawText: string,
+  options: ParseRealtimeTableOptions = {},
+): RealtimeTable {
+  const parsed = parseRealtimeTableData(rawText, options);
+  return {
+    headers: parsed.headers,
+    units: parsed.units,
+    rows: parsed.rows,
+    rawRows: parsed.rawRows,
+  };
+}
+
+export function parseRealtimeTableFrame(
+  rawText: string,
+  options: ParseRealtimeTableOptions = {},
+): RealtimeTableFrame {
+  const parsed = parseRealtimeTableData(rawText, options);
+  const frame = createFrameFromRows(parsed.headers, parsed.rows);
+  return {
+    headers: parsed.headers,
+    units: parsed.units,
+    frame,
+    rawRows: parsed.rawRows,
+  };
+}
+
+export function toDataFrame(table: RealtimeTable): DataFrame {
+  return createFrameFromRows(table.headers, table.rows);
 }
 
 export function objectifyTable(table: RealtimeTable): RealtimeRecord[] {
@@ -230,34 +347,39 @@ const FIELD_MAPPINGS: Record<string, (m: Measurement, value: ParsedValue) => voi
   },
 };
 
-function toMeasurement(record: RealtimeRecord): Measurement {
-  const measurement = createMeasurement();
-  Object.entries(record).forEach(([field, value]) => {
-    const mapper = FIELD_MAPPINGS[field];
-    if (mapper) {
-      mapper(measurement, value);
-    }
-  });
-  return measurement;
-}
-
 export function parseRealtimeData(
   buoyId: string,
   rawText: string,
   options: ParseRealtimeDataOptions = {},
 ): BuoyData {
-  const table = parseRealtimeTable(rawText, {
+  const parsed = parseRealtimeTableData(rawText, {
     ...options,
     missingValue: options.missingValue ?? Number.NaN,
   });
-  const records = objectifyTable(table);
+  const frame = createFrameFromRows(parsed.headers, parsed.rows);
+  const rowCount = frame.height;
+  const measurements = Array.from({ length: rowCount }, () =>
+    createMeasurement(),
+  );
+  const columns = frame.columns;
 
-  const measurements = records.map(record => toMeasurement(record));
+  Object.entries(FIELD_MAPPINGS).forEach(([field, mapper]) => {
+    if (!columns.includes(field)) {
+      return;
+    }
+    const values = frame.getColumn(field).toArray() as ParsedValue[];
+    values.forEach((value, index) => {
+      mapper(measurements[index], value);
+    });
+  });
 
   if (options.includeUnknownFields) {
     const measurementsWithUnknowns = measurements.map((measurement, index) => {
-      const record = records[index];
-      return { ...measurement, ...record } as Measurement;
+      const enriched = measurement as Measurement & RealtimeRecord;
+      parsed.headers.forEach((column, columnIndex) => {
+        enriched[column] = parsed.rows[index]?.[columnIndex] ?? null;
+      });
+      return enriched;
     });
 
     return {

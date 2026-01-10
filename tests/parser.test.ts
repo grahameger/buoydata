@@ -5,7 +5,9 @@ import {
   objectifyTable,
   parseRealtimeData,
   parseRealtimeTable,
+  parseRealtimeTableFrame,
   parseRow,
+  toDataFrame,
 } from '../src/realtime/parser';
 
 const fixtures = (name: string) =>
@@ -53,6 +55,29 @@ describe('objectifyTable', () => {
     const records = objectifyTable(table);
     expect(records[0]['#YY']).toBe(2026);
     expect(records[0].WDIR).toBeDefined();
+  });
+});
+
+describe('parseRealtimeTableFrame', () => {
+  it('parses realtime data into a dataframe', () => {
+    const table = parseRealtimeTableFrame(fixtures('46026.txt'));
+    expect(table.frame.columns.slice(0, 5)).toEqual([
+      '#YY',
+      'MM',
+      'DD',
+      'hh',
+      'mm',
+    ]);
+    expect(table.frame.height).toBeGreaterThan(0);
+  });
+});
+
+describe('toDataFrame', () => {
+  it('converts parsed tables into a dataframe', () => {
+    const table = parseRealtimeTable(fixtures('46026.txt'));
+    const frame = toDataFrame(table);
+    expect(frame.columns).toEqual(table.headers);
+    expect(frame.height).toBe(table.rows.length);
   });
 });
 

@@ -10,7 +10,7 @@ export default defineConfig({
     },
     sourcemap: true,
     rollupOptions: {
-      external: [],
+      external: ['nodejs-polars'],
     },
   },
   test: {

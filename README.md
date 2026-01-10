@@ -30,14 +30,9 @@ const table = parseRealtimeTable(raw);
 console.log(table.headers);
 ```
 
-## Browser usage
+## Requirements
 
-```ts
-import { fetchRealtimeData, parseRealtimeTable } from 'buoydata';
-
-const raw = await fetchRealtimeData({ buoyId: '46026', type: 'spec' });
-const table = parseRealtimeTable(raw);
-```
+- Node.js 18+ (server-side only; this package depends on `nodejs-polars`).
 
 ## Node usage
 
@@ -120,6 +115,30 @@ parseRealtimeTable(
 ): RealtimeTable
 ```
 
+### parseRealtimeTableFrame
+
+Parses a realtime2 text file into a Polars `DataFrame` with headers, units, and raw rows.
+
+```ts
+parseRealtimeTableFrame(
+  rawText: string,
+  options?: {
+    coerceNumbers?: boolean;
+    missingValue?: number | null;
+    missingTokens?: string[];
+    commentPrefix?: string;
+  },
+): RealtimeTableFrame
+```
+
+### toDataFrame
+
+Converts a `RealtimeTable` into a Polars `DataFrame`.
+
+```ts
+toDataFrame(table: RealtimeTable): DataFrame
+```
+
 ### parseRow
 
 Parses a single row into values using whitespace splitting and missing-data handling.
@@ -186,6 +205,17 @@ Structured representation of standard meteorological data:
   headers: string[];
   units: string[];
   rows: (string | number | null)[][];
+  rawRows: string[];
+}
+```
+
+### RealtimeTableFrame
+
+```ts
+{
+  headers: string[];
+  units: string[];
+  frame: DataFrame;
   rawRows: string[];
 }
 ```

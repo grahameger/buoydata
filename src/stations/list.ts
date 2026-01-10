@@ -1,3 +1,4 @@
+import pl from 'nodejs-polars';
 import { LruCache } from '../utils/lru';
 
 export interface FetchBuoyListOptions {
@@ -70,25 +71,34 @@ function parseActiveStationsXml(rawText: string): { ids: string[]; set: Set<stri
 }
 
 function parseStationTable(rawText: string): string[] {
-  const ids: string[] = [];
+  const lines = rawText
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line.length > 0 && !line.startsWith('#'));
 
-  rawText.split(/\r?\n/).forEach(line => {
-    if (!line || line.startsWith('#')) {
-      return;
-    }
+  if (lines.length === 0) {
+    return [];
+  }
 
-    const pipeIndex = line.indexOf('|');
-    const token = pipeIndex === -1 ? line : line.slice(0, pipeIndex);
-    const id = token.trim().toUpperCase();
-
-    if (!/^[A-Z0-9]{3,10}$/.test(id)) {
-      return;
-    }
-
-    ids.push(id);
+  const frame = pl.readCSV(lines.join('\n'), {
+    sep: '|',
+    hasHeader: false,
+    inferSchemaLength: 0,
+    ignoreErrors: true,
+    truncateRaggedLines: true,
   });
 
-  return ids;
+  const idsFrame = frame
+    .select(
+      pl
+        .col('column_1')
+        .str.strip()
+        .str.toUpperCase()
+        .alias('id'),
+    )
+    .filter(pl.col('id').str.contains('^[A-Z0-9]{3,10}$'));
+
+  return idsFrame.getColumn('id').toArray() as string[];
 }
 
 async function fetchActiveStations(
