@@ -30,6 +30,94 @@ const table = parseRealtimeTable(raw);
 console.log(table.headers);
 ```
 
+## Weather GRIB downloads (HRRR, NAM, GFS, ECMWF)
+
+The weather helpers fetch GRIB2 files (NOAA NOMADS for HRRR/NAM/GFS) and store them locally with metadata for routing workflows. ECMWF can use public Open Data or a provider such as Meteoblue.
+
+```ts
+import { downloadGrib } from 'buoydata';
+
+const request = {
+  model: 'gfs',
+  run: { date: '20240101', hour: 0 },
+  forecastHour: 6,
+  region: { west: -130, south: 20, east: -60, north: 55 },
+  variables: ['TMP', 'UGRD', 'VGRD'],
+  levels: ['10_m_above_ground'],
+};
+
+const stored = await downloadGrib({
+  request,
+  storageRoot: './data/grib',
+  skipIfExists: true,
+});
+
+console.log(stored.path);
+```
+
+Notes:
+- `variables` and `levels` are NOAA filter names without the `var_`/`lev_` prefix (e.g. `TMP`, `10_m_above_ground`). For full files, omit them and omit `region`.
+- NOAA HRRR/NAM/GFS default to public cloud mirrors (AWS + GCS) with randomized round-robin selection for full files.
+- NOAA filters (region/levels/variables) still use NOMADS because cloud mirrors do not provide server-side subsetting.
+- ECMWF Open Data is public, but you must supply a path/file template that matches the dataset you want.
+- Meteoblue access requires an API key; provide it in the ECMWF config.
+
+ECMWF Open Data example (public, no credentials):
+
+```ts
+import { downloadGrib } from 'buoydata';
+
+const stored = await downloadGrib({
+  request: {
+    model: 'ecmwf',
+    run: { date: '20240101', hour: 0 },
+    forecastHour: 6,
+  },
+  sourceConfig: {
+    ecmwf: {
+      provider: 'ecmwf-open-data',
+      baseUrl: 'https://data.ecmwf.int/forecasts/',
+      pathTemplate: '{date}/{hour}z/ifs/0p25/oper',
+      fileTemplate: '{date}{hour}0000-{forecastHour}h-oper-fc.grib2',
+    },
+  },
+});
+```
+
+Meteoblue example (requires API key):
+
+```ts
+import { downloadGrib } from 'buoydata';
+
+const stored = await downloadGrib({
+  request: {
+    model: 'ecmwf',
+    run: { date: '20240101', hour: 0 },
+    forecastHour: 6,
+  },
+  sourceConfig: {
+    ecmwf: {
+      provider: 'meteoblue',
+      baseUrl: 'https://my.meteoblue.com/',
+      pathTemplate: 'packages/{date}/{hour}',
+      apiKey: process.env.METEOBLUE_API_KEY,
+      query: {
+        format: 'grib',
+      },
+    },
+  },
+});
+```
+
+## Model update cadence
+
+```ts
+import { getModelUpdateStatus } from 'buoydata';
+
+const status = getModelUpdateStatus('gfs');
+console.log(status.lastUpdate, status.nextUpdate);
+```
+
 ## Requirements
 
 - Node.js 18+ (server-side only; this package depends on `nodejs-polars`).

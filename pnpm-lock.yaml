@@ -27,6 +27,9 @@ importers:
       eslint-config-prettier:
         specifier: ^9.1.0
         version: 9.1.2(eslint@9.39.2)
+      grib2class:
+        specifier: ^1.0.7
+        version: 1.0.7
       prettier:
         specifier: ^3.3.3
         version: 3.7.4
@@ -735,6 +738,9 @@ packages:
   globals@14.0.0:
     resolution: {integrity: sha512-oahGvuMGQlPw/ivIYBjVSrWAfWLBeku5tpPE2fOPLi+WHffIWbuh2tCjhyQhTBPMf5E9jDEH4FOmTYgYwbKwtQ==}
     engines: {node: '>=18'}
+
+  grib2class@1.0.7:
+    resolution: {integrity: sha512-r9ZML6c7VIL+K5qaig/pzaHFS0CQXMaiZaEg2RjC4zbgY9dah3amyut8tMtAm+A1labNLB9f3hVg+RAiMxcxGA==}
 
   has-flag@4.0.0:
     resolution: {integrity: sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==}
@@ -1809,6 +1815,8 @@ snapshots:
       path-scurry: 1.11.1
 
   globals@14.0.0: {}
+
+  grib2class@1.0.7: {}
 
   has-flag@4.0.0: {}
 
