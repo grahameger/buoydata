@@ -1,5 +1,3 @@
-import path from 'path';
-import { Readable } from 'stream';
 import { buildGribUrl, type WeatherSourceConfig } from './sources';
 import type { GribRequest, StoredGrib, WeatherStorage } from './types';
 import { LocalDiskStorage } from './storage';
@@ -17,7 +15,15 @@ export interface DownloadGribOptions extends FetchGribOptions {
   skipIfExists?: boolean;
 }
 
-const DEFAULT_STORAGE_ROOT = path.resolve(process.cwd(), 'weather-grib');
+const FALLBACK_STORAGE_ROOT = 'weather-grib';
+
+async function resolveDefaultStorageRoot(): Promise<string> {
+  if (typeof process !== 'undefined' && typeof process.cwd === 'function') {
+    const path = await import('path');
+    return path.resolve(process.cwd(), FALLBACK_STORAGE_ROOT);
+  }
+  return FALLBACK_STORAGE_ROOT;
+}
 
 export async function fetchGrib(
   request: GribRequest,
@@ -48,7 +54,9 @@ export async function downloadGrib(
 
   const storage =
     options.storage ??
-    new LocalDiskStorage(options.storageRoot ?? DEFAULT_STORAGE_ROOT);
+    new LocalDiskStorage(
+      options.storageRoot ?? (await resolveDefaultStorageRoot()),
+    );
 
   if (options.skipIfExists) {
     const existing = await storage.readMetadata(options.request);
@@ -65,7 +73,8 @@ export async function downloadGrib(
   }
 
   if (response.body) {
-    const stream = Readable.fromWeb(response.body);
+    const { Readable } = await import('stream');
+    const stream = Readable.fromWeb(response.body as any);
     return storage.write(options.request, { url, stream });
   }
 

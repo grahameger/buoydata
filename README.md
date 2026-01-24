@@ -120,7 +120,8 @@ console.log(status.lastUpdate, status.nextUpdate);
 
 ## Requirements
 
-- Node.js 18+ (server-side only; this package depends on `nodejs-polars`).
+- Browser-friendly parsing helpers; Node.js 18+ required for filesystem-backed
+  weather downloads/storage.
 
 ## Node usage
 

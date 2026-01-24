@@ -1,7 +1,7 @@
-import pl from 'nodejs-polars';
-import type { DataFrame, ReadCsvOptions } from 'nodejs-polars';
 import { BuoyData, Measurement } from '../models/measurement';
 import {
+  DataFrame,
+  DataFrameColumn,
   ParsedValue,
   RealtimeRecord,
   RealtimeTable,
@@ -31,6 +31,38 @@ interface ParsedTableData {
   rawRows: string[];
 }
 
+class SimpleDataFrame implements DataFrame {
+  public readonly columns: string[];
+  private readonly data: ParsedValue[][];
+  private readonly columnIndex: Map<string, number>;
+
+  constructor(columns: string[], rows: ParsedValue[][]) {
+    this.columns = [...columns];
+    this.data = rows.map(row => row.slice());
+    this.columnIndex = new Map(this.columns.map((name, index) => [name, index]));
+  }
+
+  get height(): number {
+    return this.data.length;
+  }
+
+  rows(): ParsedValue[][] {
+    return this.data.map(row => row.slice());
+  }
+
+  getColumn(name: string): DataFrameColumn {
+    const index = this.columnIndex.get(name);
+    const values =
+      index === undefined
+        ? []
+        : this.data.map(row => row[index] ?? null);
+    return {
+      name,
+      toArray: () => values.slice(),
+    };
+  }
+}
+
 function resolveRowOptions(options: ParseRowOptions): Required<ParseRowOptions> {
   return {
     coerceNumbers: options.coerceNumbers ?? true,
@@ -52,10 +84,6 @@ function isMissingToken(value: string, missingTokens: string[]): boolean {
   return false;
 }
 
-function normalizeRowWhitespace(line: string): string {
-  return line.trim().replace(/\s+/g, ' ');
-}
-
 function coerceValue(
   raw: string,
   options: Required<ParseRowOptions>,
@@ -72,17 +100,6 @@ function coerceValue(
   }
 
   return raw;
-}
-
-function coerceFrameValue(
-  value: unknown,
-  options: Required<ParseRowOptions>,
-): ParsedValue {
-  if (value === null || value === undefined) {
-    return options.missingValue;
-  }
-
-  return coerceValue(String(value), options);
 }
 
 export function parseRow(
@@ -109,54 +126,30 @@ function normalizeLines(rawText: string): string[] {
     .filter(line => line.length > 0);
 }
 
-function buildRealtimeFrame(
+function normalizeRowLength(
   headers: string[],
-  dataRows: string[],
-  missingTokens: string[],
-): DataFrame {
-  if (headers.length === 0) {
-    return pl.DataFrame({});
+  row: ParsedValue[],
+  missingValue: ParsedValue,
+): ParsedValue[] {
+  const normalized = row.slice(0, headers.length);
+  while (normalized.length < headers.length) {
+    normalized.push(missingValue);
   }
+  return normalized;
+}
 
-  if (dataRows.length === 0) {
-    const emptyColumns = Object.fromEntries(
-      headers.map(header => [header, [] as ParsedValue[]]),
-    );
-    return pl.DataFrame(emptyColumns);
-  }
-
-  const normalizedHeader = headers.join(' ');
-  const normalizedRows = dataRows.map(row => normalizeRowWhitespace(row));
-  const csvBody = [normalizedHeader, ...normalizedRows].join('\n');
-
-  const readOptions: Partial<ReadCsvOptions> = {
-    sep: ' ',
-    hasHeader: true,
-    inferSchemaLength: 0,
-    ignoreErrors: true,
-    truncateRaggedLines: true,
-  };
-
-  if (missingTokens.length > 0) {
-    readOptions.nullValues = missingTokens;
-  }
-
-  return pl.readCSV(csvBody, readOptions);
+function parseDataRows(
+  headers: string[],
+  rawRows: string[],
+  rowOptions: Required<ParseRowOptions>,
+): ParsedValue[][] {
+  return rawRows.map(row =>
+    normalizeRowLength(headers, parseRow(row, rowOptions), rowOptions.missingValue),
+  );
 }
 
 function createFrameFromRows(headers: string[], rows: ParsedValue[][]): DataFrame {
-  if (headers.length === 0) {
-    return pl.DataFrame({});
-  }
-
-  if (rows.length === 0) {
-    const emptyColumns = Object.fromEntries(
-      headers.map(header => [header, [] as ParsedValue[]]),
-    );
-    return pl.DataFrame(emptyColumns);
-  }
-
-  return pl.DataFrame(rows, { columns: headers, orient: 'row' });
+  return new SimpleDataFrame(headers, rows);
 }
 
 function parseRealtimeTableData(
@@ -201,10 +194,7 @@ function parseRealtimeTableData(
   });
 
   const rawRows = lines.slice(dataStartIndex);
-  const frame = buildRealtimeFrame(headers, rawRows, rowOptions.missingTokens);
-  const rows = frame
-    .rows()
-    .map(row => row.map(value => coerceFrameValue(value, rowOptions)));
+  const rows = parseDataRows(headers, rawRows, rowOptions);
 
   return {
     headers,

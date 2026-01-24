@@ -9,9 +9,6 @@ export default defineConfig({
       fileName: format => (format === 'es' ? 'index.js' : 'index.cjs'),
     },
     sourcemap: true,
-    rollupOptions: {
-      external: ['nodejs-polars'],
-    },
   },
   test: {
     include: ['tests/**/*.test.ts'],

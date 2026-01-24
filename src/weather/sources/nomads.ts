@@ -26,11 +26,11 @@ export function buildNomadsFilterUrl(options: NomadsFilterOptions): string {
   };
 
   if (options.region) {
-    params.subregion = '';
-    params.leftlon = options.region.west;
-    params.rightlon = options.region.east;
-    params.toplat = options.region.north;
-    params.bottomlat = options.region.south;
+    params['subregion'] = '';
+    params['leftlon'] = options.region.west;
+    params['rightlon'] = options.region.east;
+    params['toplat'] = options.region.north;
+    params['bottomlat'] = options.region.south;
   }
 
   options.variables?.forEach(variable => {

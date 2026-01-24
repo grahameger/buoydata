@@ -1,6 +1,16 @@
-import type { DataFrame } from 'nodejs-polars';
-
 export type ParsedValue = string | number | null;
+
+export interface DataFrameColumn {
+  name: string;
+  toArray(): ParsedValue[];
+}
+
+export interface DataFrame {
+  columns: string[];
+  height: number;
+  rows(): ParsedValue[][];
+  getColumn(name: string): DataFrameColumn;
+}
 
 export interface RealtimeTable {
   headers: string[];

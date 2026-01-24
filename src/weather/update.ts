@@ -26,6 +26,9 @@ const MODEL_SCHEDULES: Record<WeatherModel, ModelSchedule> = {
 
 function getLastCycleTime(now: Date, cycleHours: number[]): Date {
   const sorted = [...cycleHours].sort((a, b) => a - b);
+  if (sorted.length === 0) {
+    throw new Error('No cycle hours configured.');
+  }
   const nowHour = now.getUTCHours();
   const nowDate = new Date(
     Date.UTC(
@@ -41,7 +44,7 @@ function getLastCycleTime(now: Date, cycleHours: number[]): Date {
 
   let cycleHour = sorted.filter(hour => hour <= nowHour).pop();
   if (cycleHour === undefined) {
-    cycleHour = sorted[sorted.length - 1];
+    cycleHour = sorted[sorted.length - 1]!;
     const previousDay = new Date(nowDate.getTime() - 24 * 60 * 60 * 1000);
     previousDay.setUTCHours(cycleHour, 0, 0, 0);
     return previousDay;
@@ -54,13 +57,16 @@ function getLastCycleTime(now: Date, cycleHours: number[]): Date {
 
 function getNextCycleTime(lastCycle: Date, cycleHours: number[]): Date {
   const sorted = [...cycleHours].sort((a, b) => a - b);
+  if (sorted.length === 0) {
+    throw new Error('No cycle hours configured.');
+  }
   const lastHour = lastCycle.getUTCHours();
   const index = sorted.indexOf(lastHour);
   const nextHour = sorted[index + 1];
 
   if (nextHour === undefined) {
     const nextDay = new Date(lastCycle.getTime() + 24 * 60 * 60 * 1000);
-    nextDay.setUTCHours(sorted[0], 0, 0, 0);
+    nextDay.setUTCHours(sorted[0]!, 0, 0, 0);
     return nextDay;
   }
 
@@ -82,9 +88,10 @@ export function getModelUpdateStatus(
   const lastUpdate = new Date(lastRun.getTime() + delayMs);
   const nextUpdate = new Date(nextRun.getTime() + delayMs);
 
+  const [firstHour, secondHour] = schedule.cycleHours;
   const cadenceHours =
-    schedule.cycleHours.length > 1
-      ? schedule.cycleHours[1] - schedule.cycleHours[0]
+    firstHour !== undefined && secondHour !== undefined
+      ? secondHour - firstHour
       : 24;
 
   return {

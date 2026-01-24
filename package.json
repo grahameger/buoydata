@@ -25,10 +25,8 @@
     "lint": "eslint . --ext .ts",
     "format": "prettier -w ."
   },
-  "dependencies": {
-    "nodejs-polars": "^0.23.5"
-  },
   "devDependencies": {
+    "@types/node": "^22.13.0",
     "@typescript-eslint/eslint-plugin": "^8.4.0",
     "@typescript-eslint/parser": "^8.4.0",
     "@vitest/coverage-v8": "^2.1.1",

@@ -1,6 +1,3 @@
-import { promises as fs, createWriteStream } from 'fs';
-import path from 'path';
-import { pipeline } from 'stream/promises';
 import type {
   GribRequest,
   StoredGrib,
@@ -9,6 +6,21 @@ import type {
   WeatherStorageWriteData,
 } from './types';
 import { getRequestVariant, padNumber } from './utils';
+
+function joinFsPath(...parts: string[]): string {
+  return parts
+    .map(part => part.replace(/^[/\\]+|[/\\]+$/g, ''))
+    .filter(Boolean)
+    .join('/');
+}
+
+function dirnameFs(pathValue: string): string {
+  const index = pathValue.lastIndexOf('/');
+  if (index <= 0) {
+    return '.';
+  }
+  return pathValue.slice(0, index);
+}
 
 export function buildGribStoragePaths(
   baseDir: string,
@@ -20,11 +32,11 @@ export function buildGribStoragePaths(
   const suffix = variant ? `_${variant}` : '';
   const filename = `f${forecastHour}${suffix}.grib2`;
   const metadataName = `f${forecastHour}${suffix}.json`;
-  const dir = path.join(baseDir, request.model, request.run.date, hour);
+  const dir = joinFsPath(baseDir, request.model, request.run.date, hour);
 
   return {
-    gribPath: path.join(dir, filename),
-    metadataPath: path.join(dir, metadataName),
+    gribPath: joinFsPath(dir, filename),
+    metadataPath: joinFsPath(dir, metadataName),
   };
 }
 
@@ -43,6 +55,7 @@ export class LocalDiskStorage implements WeatherStorage {
   }
 
   async readMetadata(request: GribRequest): Promise<StoredGrib | null> {
+    const { promises: fs } = await import('fs');
     const { metadataPath } = this.getPaths(request);
     try {
       const raw = await fs.readFile(metadataPath, 'utf8');
@@ -60,8 +73,10 @@ export class LocalDiskStorage implements WeatherStorage {
     request: GribRequest,
     data: WeatherStorageWriteData,
   ): Promise<StoredGrib> {
+    const { promises: fs, createWriteStream } = await import('fs');
+    const { pipeline } = await import('stream/promises');
     const { gribPath, metadataPath } = this.getPaths(request);
-    await fs.mkdir(path.dirname(gribPath), { recursive: true });
+    await fs.mkdir(dirnameFs(gribPath), { recursive: true });
 
     const tempPath = `${gribPath}.tmp-${Date.now()}`;
 

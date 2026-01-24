@@ -1,4 +1,3 @@
-import pl from 'nodejs-polars';
 import { LruCache } from '../utils/lru';
 
 export interface FetchBuoyListOptions {
@@ -80,25 +79,26 @@ function parseStationTable(rawText: string): string[] {
     return [];
   }
 
-  const frame = pl.readCSV(lines.join('\n'), {
-    sep: '|',
-    hasHeader: false,
-    inferSchemaLength: 0,
-    ignoreErrors: true,
-    truncateRaggedLines: true,
+  const ids: string[] = [];
+  const seen = new Set<string>();
+
+  lines.forEach(line => {
+    const [rawId] = line.split('|');
+    if (!rawId) {
+      return;
+    }
+    const id = rawId.trim().toUpperCase();
+    if (!/^[A-Z0-9]{3,10}$/.test(id)) {
+      return;
+    }
+    if (seen.has(id)) {
+      return;
+    }
+    seen.add(id);
+    ids.push(id);
   });
 
-  const idsFrame = frame
-    .select(
-      pl
-        .col('column_1')
-        .str.strip()
-        .str.toUpperCase()
-        .alias('id'),
-    )
-    .filter(pl.col('id').str.contains('^[A-Z0-9]{3,10}$'));
-
-  return idsFrame.getColumn('id').toArray() as string[];
+  return ids;
 }
 
 async function fetchActiveStations(
